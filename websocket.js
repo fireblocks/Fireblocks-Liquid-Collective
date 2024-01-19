@@ -7,7 +7,7 @@ const { inspect } = require('util');
 const ethers = require("ethers");
 
 //Update with Goerli and mainnet accordingly. The following is testnet to start
-const CONTRACT_ADDRESS = "0x653b549554669a06BB9e260b9f2c0A54F5d7E722";
+const CONTRACT_ADDRESS = "0x0693875efbF04dDAd955c04332bA3324472DF980";
 const INFURA_SECRET = process.env.INFURA_SECRET;
 const Contract = require("./RedeemManagerTest.json");
  
