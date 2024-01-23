@@ -1,108 +1,94 @@
 
+# Liquid Staking with Liquid Collective
 
-## Alluvial Staking with Fireblocks - POC
+## What is Liquid Collective?
 
-# What is it?
-This repo describes the setup and instructions to use [Alluvial](http://alluvial.finance) to do liquid staking on Mainnet and Testnet using ETH. The following functions are supported by Fireblocks: Staking, claiming, and redeeming. 
+Liquid Collective is a liquid staking standard focusing on security.
 
-At a high level, we are staking by sending to a contract address, and unstaking (redeem + claim) by making Smart Contract calls to Alluvial.
+In order to interact with the Liquid Collective protocol, your address needs to be added to an approved allowlist via the Fireblocks team. Please reach out to Fireblocks support or your Account Manager to get your address(s) added.
 
+Once your wallet address(s) are added, you will be able to stake and redeem ETH, by interacting with the Liquid Collective smart contract.
 
-## Local setup
+The Liquid Collective issues a receipt token, LsETH. For more information on LsETH, checkout the [LsETH docs page](https://docs.liquidcollective.io/eth/tokenomics/lseth).
 
-Clone repo via: 
+## Github repo usage
 
-`git clone`
-
-Install packages:
-
-```npm start```
-
-Grab Client secret and token from OnePass, link is in the shared slack channel #fireblocks-alluvial.
-
-Add to .env: `API_TESTNET_CLIENT_ID` and `API_TESTNET_CLIENT_SECRET` with appropriate values.
-
-Be sure you also have an API key user, with valid TAP permissions to call and interact with transfers, as we will be using the Fireblocks web3 provider.
-
-Be sure you have the private key file you generated with the CSR when you generated this API user.
-
-If you haven't already, run `npm install`
- 
-## Usage
 To use the functions, uncomment the line that calls each function. For example, if you'd like to run `createRedeemRequest()`, be sure it is uncommented, and run:
 
-```node unstake.js```
+```node app.js```
 
-
-## To stake
+## Stake ETH
 
 Using the console, either in a whitelisted external address, or a one-time address, create a transfer and
 send desired ETH to stake to:
 
-[Mainnet](https://etherscan.io/tokenholdings?a=0x8c1BEd5b9a0928467c9B1341Da1D7BD5e10b6549)
+[Mainnet](https://etherscan.io/tokenholdings?a=0x8c1BEd5b9a0928467c9B1341Da1D7BD5e10b6549) or here on [Goerli Testnet](https://goerli.etherscan.io/address/0x3ecCAdA3e11c1Cc3e9B5a53176A67cc3ABDD3E46).
 
-or here on [Goerli Testnet](https://goerli.etherscan.io/address/0x3ecCAdA3e11c1Cc3e9B5a53176A67cc3ABDD3E46).
+Note the Liquid Collective uses a TUP Proxy pattern, so the proxy contract (where you interact) will be different from implementation contract. Below is a table of the Proxy vs. implementation contracts:
 
-Note here that they're using the TUP Proxy pattern, so have different contract addresses for LsETH, and the implementation itself.
+| Ethereum Network | Proxy                                      | Implementation                             |
+| ---------------- | ------------------------------------------ | ------------------------------------------ |
+| Goerli           | 0x3ecCAdA3e11c1Cc3e9B5a53176A67cc3ABDD3E46 | 0xF32fC26C9604a380c311e7eC0c5E545917e7934f |
+| Mainnet          | 0x8c1BEd5b9a0928467c9B1341Da1D7BD5e10b6549 | 0x48D93d8C45Fb25125F13cdd40529BbeaA97A6565 |
 
-
-Add the contract address as an ERC20 asset to see your LsETH once it's staked.
-![LsETH screenshot](./LsETH-sc.png)
-
+TODO Eric to add screenshot Transfer and LsETH in wallet. 
 
 ## Unstaking
 
-Unstaking will require two steps, and separate smart contract calls. 
+Unstaking will require two separate smart contract calls.
+
 1. Submitting a Redeem Request
-2. Claim Request Redeem once the redemption is ready for claiming. 
-
-First, be sure you have the right ABI Contract.
-
-`ContractMain.json` for mainnet and `ContractTest.json` for testnet. Replace the value appropriately in the code in `unstake.js`:
-
-```
-const ABI = require("./ContractMain.json").abi;
-```
+2. Claim Request Redeem once the redemption is ready for claiming.
 
 *Redeem Request:*
 
-Uncomment and call the function `createRedeemRequest`. Be sure that the amount to claim, and the contract address is updated accordingly. 
+When submitting a Redemption request, a redeem request ID will be returned. The best way to retrieve this ID is by opening a websocket server to listen for contract events emitted from the RedeemManager. We've added a websocket file that you can use for testing `websocket.js`. The `websocket.js` uses an Infura websocket API, you can use Infura or any other provider that extends websocket access.
 
-Voila, the RedeemRequest should be successfully submitted. You can poll this by calling the following endpoint: `https://api.alluvial.finance/eth/v0/redeems?owner=<address>`
+The websocket will point to the Redeem Manger contract. Below are the contract address details:
+
+| Ethereum Network | Proxy                                      | Implementation                             |
+| ---------------- | ------------------------------------------ | ------------------------------------------ |
+| Goerli           | 0x0693875efbF04dDAd955c04332bA3324472DF980 | 0x653b549554669a06bb9e260b9f2c0a54f5d7e722 |
+| Mainnet          | 0x080b3a41390b357Ad7e8097644d1DEDf57AD3375 | 0x423ce5282c460eed5fe0786b4d47d2c2a4ef3721 |
+
+After configuring `websocket.js` , start your websocket by running:
+
+```js
+node websocket.js
+```
+
+The websocket app will listen for the following events:
+- RequestedRedeem
+- ReportedWithdrawal
+- SatisfiedRedeemRequest
+- ClaimedRedeemRequest
+
+In a separate terminal (leaving your websocket app running),uncomment and call the function `createRedeemRequest`. Be sure that the amount to claim, and the contract address is updated accordingly.
 
 Be sure the smart contract is whitelisted, and you should see it execute in the fireblocks console as it fires. Approve the transaction using your mobile device.
 
-> Add POSTMAN LINK
+In your `app.js` you should see a transaction hash returned. In your `websocket.js` terminal you should see a redeem request event emitted, containing the redemption request ID. Below is an example response.
+
+```json
+RequestedRedeem event
+Owner of redeem <WALLET ADDRESS>
+Height 4980971589444881813
+Amount of LsETH to redeem 10000000
+Maximum amount of ETH to redeem 10212074
+Request Redeem ID 18
+```
+
+Keep this ID, example of 18. It will take at least 24hours for the redemption request to be resolved. You can check the status of the redemption request by calling the function resolveRedeemRequest(). Add your redeem request ID to the array and call the function. Any number greater than 0, means your redemption is satisfied (partially or fully). The number returned is the withdrawal event ID and is used when making a claim.
 
 *Claiming*:
 
-Uncomment and call the function `createClaimRedeemRequest`. Be sure that the request and withdrawal ID is updated with the values from the above API endpoint.
+Uncomment and call the function `createClaimRedeemRequest`. Be sure that the request ID and withdrawal ID is updated with the values from the above API endpoint.
 
 See the smart contract function execute and your ETH balance reflect the claim successfully!
 
-
-### Delisting a wallet
-Key we use is {tenant-id}:{vault-id}. 
-
-List depositors via: 
-GET https://api.alluvial.finance/v0/depositors/
-
-Remove the depositor: 
-PATCH: https://api.alluvial.finance/v0/depositors/68801f58-c1e4-4e09-89cb-529b6823e967:8/remove
-
+TODO Eric to add screenshot of console. 
 
 ## Links/Resources
 
 - Postman link
-- [Alluvial Integration Guide](https://docs.alluvial.finance/third-party-guides/fireblocks-integration)
 - [Fireblocks web3 provider](https://github.com/fireblocks/fireblocks-web3-provider/)
-
-
-
-
-
-
-
-
-
-# fireblocks-alluvial-integration
